@@ -1,5 +1,5 @@
 <h1 align="center">
-  ✨ RAJASTHANI DRM Bot ✨
+  ✨ Bot ✨
 </h1>
 
 <p align="center">
