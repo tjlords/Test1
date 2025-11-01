@@ -294,112 +294,98 @@ async def download_and_decrypt_video(url, cmd, name, key):
             return video_path  
         else:  
             print(f"Failed to decrypt {video_path}.")  
-            return None  
+            return None
 
-def add_watermark_with_compression(input_file, output_file, watermark_text, opacity=0.3):
+# ==================== FAST VISUAL WATERMARK FUNCTION ====================
+def add_watermark_fast(input_file, output_file, watermark_text):
     """
-    Add watermark to video center with low opacity and smart compression
+    FAST visual watermark optimized for Render.com
+    - Uses software encoding (compatible with all environments)
+    - Copies audio stream (no audio re-encoding = faster)
+    - Optimized for speed with good quality
     """
+    cmd = (
+        f'ffmpeg -i "{input_file}" '
+        f'-vf "drawtext=text=\'{watermark_text}\':fontcolor=white@0.4:'
+        f'fontsize=28:x=(w-text_w)/2:y=(h-text_h)/2" '
+        f'-c:v libx264 -preset fast -crf 23 '  # Balanced speed/quality
+        f'-c:a copy '  # KEY: Copy audio without re-encoding = 2x faster
+        f'-movflags +faststart '  # Better streaming
+        f'-y "{output_file}"'
+    )
+    
+    print(f"Adding watermark: {watermark_text}")
+    start_time = time.time()
+    
     try:
-        # Get video info for optimal compression settings
-        cmd_info = f'ffprobe -v error -select_streams v:0 -show_entries stream=width,height,bit_rate -of csv=p=0 "{input_file}"'
-        info_result = subprocess.run(cmd_info, shell=True, capture_output=True, text=True)
-        video_info = info_result.stdout.strip().split(',')
-        
-        width = int(video_info[0]) if video_info[0] else 1280
-        height = int(video_info[1]) if video_info[1] else 720
-        
-        # Calculate optimal font size based on video resolution
-        font_size = min(width, height) // 20
-        
-        # Smart compression settings based on resolution
-        if width >= 1920 or height >= 1080:
-            # For HD videos - use efficient compression
-            crf = "23"  # Good quality with reasonable compression
-            preset = "medium"
-        else:
-            # For lower resolution - lighter compression
-            crf = "25"
-            preset = "fast"
-        
-        # FFmpeg command with watermark and compression
-        cmd = (
-            f'ffmpeg -i "{input_file}" '
-            f'-vf "drawtext=text=\'{watermark_text}\':fontcolor=white@{opacity}:'
-            f'fontsize={font_size}:x=(w-text_w)/2:y=(h-text_h)/2:fontfile=vidwater.ttf" '
-            f'-c:v libx264 -preset {preset} -crf {crf} -c:a aac -b:a 128k '
-            f'-movflags +faststart "{output_file}"'
-        )
-        
-        print(f"Adding watermark and compressing: {cmd}")
         result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+        end_time = time.time()
+        
+        print(f"Watermark completed in {end_time - start_time:.2f} seconds")
         
         if result.returncode == 0 and os.path.exists(output_file):
-            # Compare file sizes
-            original_size = os.path.getsize(input_file)
-            compressed_size = os.path.getsize(output_file)
-            
-            print(f"Original size: {human_readable_size(original_size)}")
-            print(f"Compressed size: {human_readable_size(compressed_size)}")
-            print(f"Compression ratio: {(compressed_size/original_size)*100:.2f}%")
-            
+            # Show file size comparison
+            if os.path.exists(input_file):
+                orig_size = os.path.getsize(input_file)
+                new_size = os.path.getsize(output_file)
+                print(f"Original: {human_readable_size(orig_size)} | Watermarked: {human_readable_size(new_size)}")
             return True
         else:
-            print(f"Watermark/compression failed: {result.stderr}")
+            print(f"Watermark failed: {result.stderr}")
             return False
             
     except Exception as e:
-        print(f"Error in watermark/compression: {str(e)}")
+        print(f"Watermark error: {str(e)}")
         return False
 
+# ==================== UPDATED SEND_VID FUNCTION ====================
 async def send_vid(bot: Client, m: Message, cc, filename, vidwatermark, thumb, name, prog, channel_id):
+    # Generate thumbnail
     subprocess.run(f'ffmpeg -i "{filename}" -ss 00:00:10 -vframes 1 "{filename}.jpg"', shell=True)
-    await prog.delete (True)
+    await prog.delete(True)
+    
     reply1 = await bot.send_message(channel_id, f"**📩 Uploading Video 📩:-**\n<blockquote>**{name}**</blockquote>")
-    reply = await m.reply_text(f"**Generate Thumbnail:**\n<blockquote>**{name}**</blockquote>")
+    reply = await m.reply_text(f"**Processing Video:**\n<blockquote>**{name}**</blockquote>")
     
     try:
+        # Set thumbnail
         if thumb == "/d":
             thumbnail = f"{filename}.jpg"
         else:
             thumbnail = thumb  
         
+        # FAST WATERMARK PROCESSING
         if vidwatermark == "/d":
-            # No watermark requested, just compress
-            w_filename = f"compressed_{filename}"
-            compression_cmd = (
-                f'ffmpeg -i "{filename}" -c:v libx264 -preset medium -crf 23 '
-                f'-c:a aac -b:a 128k -movflags +faststart "{w_filename}"'
-            )
-            subprocess.run(compression_cmd, shell=True)
+            # No watermark - use original file
+            w_filename = filename
+            print("Skipping watermark")
         else:
-            # Add watermark with compression
-            w_filename = f"w_compressed_{filename}"
-            success = add_watermark_with_compression(
-                filename, 
-                w_filename, 
-                vidwatermarkTJ, 
-                opacity=0.3  # Low opacity
-            )
+            # Add watermark with fast method
+            w_filename = f"watermarked_{filename}"
+            await reply.edit_text(f"**🎨 Adding Watermark:**\n<blockquote>**{name}**</blockquote>")
             
-            if not success:
-                # Fallback: just compress without watermark
-                print("Watermark failed, using compression only")
-                compression_cmd = (
-                    f'ffmpeg -i "{filename}" -c:v libx264 -preset medium -crf 23 '
-                    f'-c:a aac -b:a 128k -movflags +faststart "{w_filename}"'
-                )
-                subprocess.run(compression_cmd, shell=True)
+            success = add_watermark_fast(filename, w_filename, vidwatermark)
+            
+            if success:
+                print("Watermark added successfully")
+                # Remove original file to save space
+                if os.path.exists(filename):
+                    os.remove(filename)
+            else:
+                print("Watermark failed, using original file")
+                w_filename = filename  # Fallback to original
             
     except Exception as e:
-        await m.reply_text(str(e))
-        # Fallback to original file
-        w_filename = filename
+        print(f"Watermark error: {e}")
+        w_filename = filename  # Fallback to original
+        await m.reply_text(f"Watermark error, using original: {str(e)}")
 
+    # Get duration and upload
     dur = int(duration(w_filename))
     start_time = time.time()
 
     try:
+        await reply.edit_text(f"**📤 Uploading Video:**\n<blockquote>**{name}**</blockquote>")
         await bot.send_video(
             channel_id, 
             w_filename, 
@@ -412,7 +398,8 @@ async def send_vid(bot: Client, m: Message, cc, filename, vidwatermark, thumb, n
             progress=progress_bar, 
             progress_args=(reply, start_time)
         )
-    except Exception:
+    except Exception as e:
+        print(f"Video upload failed, trying document: {e}")
         await bot.send_document(
             channel_id, 
             w_filename, 
@@ -421,11 +408,14 @@ async def send_vid(bot: Client, m: Message, cc, filename, vidwatermark, thumb, n
             progress_args=(reply, start_time)
         )
     
-    # Cleanup
-    if w_filename != filename and os.path.exists(w_filename):
-        os.remove(w_filename)
-    if os.path.exists(filename):
-        os.remove(filename)
+    # CLEANUP - Keep watermarked file, only delete original
+    if w_filename != filename and os.path.exists(filename):
+        os.remove(filename)  # Delete original if different from watermarked
+    
+    # Don't delete watermarked file if you want to keep it
+    # if w_filename != filename and os.path.exists(w_filename):
+    #     os.remove(w_filename)
+    
     await reply.delete(True)
     await reply1.delete(True)
     if os.path.exists(f"{filename}.jpg"):
