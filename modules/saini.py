@@ -296,47 +296,136 @@ async def download_and_decrypt_video(url, cmd, name, key):
             print(f"Failed to decrypt {video_path}.")  
             return None
 
-# ==================== FAST VISUAL WATERMARK FUNCTION ====================
-def add_watermark_fast(input_file, output_file, watermark_text):
+# ==================== MULTIPLE WATERMARK METHODS ====================
+def add_watermark_center(input_file, output_file, watermark_text):
     """
-    FAST visual watermark optimized for Render.com
-    - Uses software encoding (compatible with all environments)
-    - Copies audio stream (no audio re-encoding = faster)
-    - Optimized for speed with good quality
+    Method 1: Center with background box (Most Visible)
     """
     cmd = (
         f'ffmpeg -i "{input_file}" '
-        f'-vf "drawtext=text=\'{watermark_text}\':fontcolor=white@0.4:'
-        f'fontsize=28:x=(w-text_w)/2:y=(h-text_h)/2" '
-        f'-c:v libx264 -preset fast -crf 23 '  # Balanced speed/quality
-        f'-c:a copy '  # KEY: Copy audio without re-encoding = 2x faster
-        f'-movflags +faststart '  # Better streaming
+        f'-vf "drawtext=text=\'{watermark_text}\':fontcolor=white:fontsize=48:'
+        f'box=1:boxcolor=black@0.6:boxborderw=10:'
+        f'x=(w-text_w)/2:y=(h-text_h)/2" '
+        f'-c:v libx264 -preset fast -crf 23 '
+        f'-c:a copy -movflags +faststart '
         f'-y "{output_file}"'
     )
     
-    print(f"Adding watermark: {watermark_text}")
+    print("🎯 Using CENTER watermark method")
+    return run_watermark_command(cmd, output_file)
+
+def add_watermark_bottom_right(input_file, output_file, watermark_text):
+    """
+    Method 2: Bottom Right Corner
+    """
+    cmd = (
+        f'ffmpeg -i "{input_file}" '
+        f'-vf "drawtext=text=\'{watermark_text}\':fontcolor=white:fontsize=36:'
+        f'box=1:boxcolor=black@0.6:boxborderw=5:'
+        f'x=w-text_w-20:y=h-text_h-20" '
+        f'-c:v libx264 -preset fast -crf 23 '
+        f'-c:a copy -movflags +faststart '
+        f'-y "{output_file}"'
+    )
+    
+    print("📍 Using BOTTOM-RIGHT watermark method")
+    return run_watermark_command(cmd, output_file)
+
+def add_watermark_top_left(input_file, output_file, watermark_text):
+    """
+    Method 3: Top Left Corner
+    """
+    cmd = (
+        f'ffmpeg -i "{input_file}" '
+        f'-vf "drawtext=text=\'{watermark_text}\':fontcolor=white:fontsize=36:'
+        f'box=1:boxcolor=black@0.6:boxborderw=5:'
+        f'x=20:y=20" '
+        f'-c:v libx264 -preset fast -crf 23 '
+        f'-c:a copy -movflags +faststart '
+        f'-y "{output_file}"'
+    )
+    
+    print("📍 Using TOP-LEFT watermark method")
+    return run_watermark_command(cmd, output_file)
+
+def add_watermark_bottom_center(input_file, output_file, watermark_text):
+    """
+    Method 4: Bottom Center
+    """
+    cmd = (
+        f'ffmpeg -i "{input_file}" '
+        f'-vf "drawtext=text=\'{watermark_text}\':fontcolor=white:fontsize=42:'
+        f'box=1:boxcolor=black@0.6:boxborderw=8:'
+        f'x=(w-text_w)/2:y=h-text_h-50" '
+        f'-c:v libx264 -preset fast -crf 23 '
+        f'-c:a copy -movflags +faststart '
+        f'-y "{output_file}"'
+    )
+    
+    print("📝 Using BOTTOM-CENTER watermark method")
+    return run_watermark_command(cmd, output_file)
+
+def run_watermark_command(cmd, output_file):
+    """Execute watermark command with logging"""
     start_time = time.time()
+    print(f"🔧 Executing: {cmd}")
     
     try:
         result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
         end_time = time.time()
         
-        print(f"Watermark completed in {end_time - start_time:.2f} seconds")
+        print(f"⏱️  Completed in {end_time - start_time:.2f} seconds")
         
-        if result.returncode == 0 and os.path.exists(output_file):
-            # Show file size comparison
-            if os.path.exists(input_file):
-                orig_size = os.path.getsize(input_file)
-                new_size = os.path.getsize(output_file)
-                print(f"Original: {human_readable_size(orig_size)} | Watermarked: {human_readable_size(new_size)}")
-            return True
+        if result.returncode == 0:
+            if os.path.exists(output_file):
+                print("✅ Watermark applied successfully!")
+                return True
+            else:
+                print("❌ Output file not created")
+                return False
         else:
-            print(f"Watermark failed: {result.stderr}")
+            print(f"❌ FFmpeg error: {result.stderr}")
             return False
             
     except Exception as e:
-        print(f"Watermark error: {str(e)}")
+        print(f"❌ Command error: {str(e)}")
         return False
+
+def add_watermark_test_all(input_file, output_file, watermark_text):
+    """
+    Test all methods and use the first one that works
+    """
+    methods = [
+        ("Center", add_watermark_center),
+        ("Bottom-Right", add_watermark_bottom_right),
+        ("Bottom-Center", add_watermark_bottom_center),
+        ("Top-Left", add_watermark_top_left)
+    ]
+    
+    for method_name, method_func in methods:
+        print(f"\n🔍 Testing {method_name} method...")
+        temp_output = f"temp_{method_name}_{output_file}"
+        
+        success = method_func(input_file, temp_output, watermark_text)
+        
+        if success:
+            # Copy the successful output to final file
+            import shutil
+            shutil.copy2(temp_output, output_file)
+            # Cleanup temp file
+            if os.path.exists(temp_output):
+                os.remove(temp_output)
+            
+            print(f"🎉 Using {method_name} method - SUCCESS!")
+            return True
+        else:
+            # Cleanup failed temp file
+            if os.path.exists(temp_output):
+                os.remove(temp_output)
+            print(f"❌ {method_name} method failed")
+    
+    print("❌ All watermark methods failed")
+    return False
 
 # ==================== UPDATED SEND_VID FUNCTION ====================
 async def send_vid(bot: Client, m: Message, cc, filename, vidwatermark, thumb, name, prog, channel_id):
@@ -354,34 +443,50 @@ async def send_vid(bot: Client, m: Message, cc, filename, vidwatermark, thumb, n
         else:
             thumbnail = thumb  
         
-        # FAST WATERMARK PROCESSING
+        # WATERMARK PROCESSING
         if vidwatermark == "/d":
             # No watermark - use original file
             w_filename = filename
-            print("Skipping watermark")
+            print("🚫 Skipping watermark")
         else:
-            # Add watermark with fast method
+            # Add watermark with multiple method testing
             w_filename = f"watermarked_{filename}"
-            await reply.edit_text(f"**🎨 Adding Watermark:**\n<blockquote>**{name}**</blockquote>")
+            await reply.edit_text(f"**🎨 Testing Watermark Methods:**\n<blockquote>**{name}**</blockquote>")
             
-            success = add_watermark_fast(filename, w_filename, vidwatermark)
+            print(f"💧 Watermark text: {vidwatermark}")
+            
+            # Test all methods and use first successful one
+            success = add_watermark_test_all(filename, w_filename, vidwatermark)
             
             if success:
-                print("Watermark added successfully")
+                print("✅ Watermark applied successfully!")
+                # Show file info
+                if os.path.exists(w_filename):
+                    file_size = human_readable_size(os.path.getsize(w_filename))
+                    print(f"📁 Watermarked file: {w_filename} ({file_size})")
+                
                 # Remove original file to save space
                 if os.path.exists(filename):
                     os.remove(filename)
+                    print("🗑️ Original file deleted")
             else:
-                print("Watermark failed, using original file")
+                print("❌ All watermark methods failed, using original file")
                 w_filename = filename  # Fallback to original
             
     except Exception as e:
-        print(f"Watermark error: {e}")
+        print(f"❌ Watermark error: {e}")
         w_filename = filename  # Fallback to original
-        await m.reply_text(f"Watermark error, using original: {str(e)}")
+        await m.reply_text(f"Watermark error: {str(e)}")
 
     # Get duration and upload
-    dur = int(duration(w_filename))
+    if os.path.exists(w_filename):
+        dur = int(duration(w_filename))
+        file_size = human_readable_size(os.path.getsize(w_filename))
+        print(f"📊 Final file: {w_filename} | Duration: {dur}s | Size: {file_size}")
+    else:
+        print(f"❌ Final file not found: {w_filename}")
+        dur = 0
+
     start_time = time.time()
 
     try:
@@ -398,8 +503,10 @@ async def send_vid(bot: Client, m: Message, cc, filename, vidwatermark, thumb, n
             progress=progress_bar, 
             progress_args=(reply, start_time)
         )
+        print("✅ Video uploaded successfully!")
     except Exception as e:
-        print(f"Video upload failed, trying document: {e}")
+        print(f"❌ Video upload failed: {e}")
+        await reply.edit_text(f"**📤 Uploading as Document:**\n<blockquote>**{name}**</blockquote>")
         await bot.send_document(
             channel_id, 
             w_filename, 
@@ -407,16 +514,17 @@ async def send_vid(bot: Client, m: Message, cc, filename, vidwatermark, thumb, n
             progress=progress_bar, 
             progress_args=(reply, start_time)
         )
+        print("✅ Document uploaded successfully!")
     
-    # CLEANUP - Keep watermarked file, only delete original
+    # CLEANUP
     if w_filename != filename and os.path.exists(filename):
         os.remove(filename)  # Delete original if different from watermarked
-    
-    # Don't delete watermarked file if you want to keep it
-    # if w_filename != filename and os.path.exists(w_filename):
-    #     os.remove(w_filename)
+        print("🗑️ Original file cleaned up")
     
     await reply.delete(True)
     await reply1.delete(True)
     if os.path.exists(f"{filename}.jpg"):
         os.remove(f"{filename}.jpg")
+        print("🗑️ Thumbnail cleaned up")
+    
+    print("🎉 Process completed successfully!")
