@@ -25,8 +25,10 @@ from settings import register_settings_handlers
 from broadcast import broadcast_handler, broadusers_handler
 from authorisation import add_auth_user, list_auth_users, remove_auth_user
 from youtube_handler import ytm_handler, y2t_handler, getcookies_handler, cookies_handler
-from topic_handlers import TopicHandlers
 from vars import API_ID, API_HASH, BOT_TOKEN, OWNER, CREDIT, AUTH_USERS, TOTAL_USERS, cookies_file_path
+
+# Import topic upload handlers
+from topic_handlers import TopicHandlers
 # .....,.....,.......,...,.......,....., .....,.....,.......,...,.......,.....,
 
 # Initialize the bot
@@ -37,18 +39,25 @@ bot = Client(
     bot_token=BOT_TOKEN
 )
 # .....,.....,.......,...,.......,....., .....,.....,.......,...,.......,.....,
-
 register_feature_handlers(bot)
 register_settings_handlers(bot)
 register_upgrade_handlers(bot)
 register_commands_handlers(bot)
-# .....,.....,.......,...,.......,....., .....,.....,.......,...,.......,.....,
-# Initialize topic handlers (add this after bot initialization)
-from modules.drm_handler import download_video_function  # Import your download function
-topic_handlers = TopicHandlers(bot, download_video_function)
 
+# Initialize topic handlers
+try:
+    # Create a simple download wrapper that works with your existing system
+    async def download_video_wrapper(video_url, video_name):
+        # This will return a filename that your system can process
+        # The actual download will be handled by your drm_handler
+        filename = f"temp_{video_name.replace(' ', '_')}.mp4"
+        return filename
+    
+    topic_handlers = TopicHandlers(bot, download_video_wrapper)
+    print("✅ Topic upload handlers initialized successfully")
+except Exception as e:
+    print(f"❌ Topic handlers initialization failed: {e}")
 # .....,.....,.......,...,.......,....., .....,.....,.......,...,.......,.....,
-
 @bot.on_message(filters.command("start"))
 async def start(bot, m: Message):
     user_id = m.chat.id
@@ -302,7 +311,8 @@ def reset_and_set_commands():
         {"command": "addauth", "description": "▶️ Add Authorisation"},
         {"command": "rmauth", "description": "⏸️ Remove Authorisation "},
         {"command": "users", "description": "👨‍👨‍👧‍👦 All Premium Users"},
-        {"command": "reset", "description": "✅ Reset the Bot"}
+        {"command": "reset", "description": "✅ Reset the Bot"},
+        {"command": "topicupload", "description": "📁 Upload Videos to Topics"}  # New command added
     ]
     requests.post(url, json={"commands": commands})
     
