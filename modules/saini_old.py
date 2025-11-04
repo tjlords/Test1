@@ -333,7 +333,7 @@ def add_watermark_simple(input_file, output_file, watermark_text):
         return False
 
 # ==================== UPDATED SEND_VID FUNCTION (uses add_watermark_simple) ====================
-async def send_vid(bot: Client, m: Message, cc, filename, vidwatermark, thumb, name, prog, channel_id, message_thread_id=None):
+async def send_vid(bot: Client, m: Message, cc, filename, vidwatermark, thumb, name, prog, channel_id):
     # Generate thumbnail (safe command - overwrite if exists)
     try:
         subprocess.run(f'ffmpeg -i "{filename}" -ss 00:00:10 -vframes 1 "{filename}.jpg" -y', shell=True, capture_output=True, text=True)
@@ -408,7 +408,6 @@ async def send_vid(bot: Client, m: Message, cc, filename, vidwatermark, thumb, n
             channel_id, 
             filename, 
             caption=cc, 
-            message_thread_id=message_thread_id, 
             supports_streaming=True, 
             height=720, 
             width=1280, 
@@ -426,7 +425,6 @@ async def send_vid(bot: Client, m: Message, cc, filename, vidwatermark, thumb, n
                 channel_id, 
                 filename, 
                 caption=cc, 
-                message_thread_id=message_thread_id, 
                 progress=progress_bar, 
                 progress_args=(reply, start_time)
             )

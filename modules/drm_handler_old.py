@@ -44,36 +44,6 @@ from vars import api_url, api_token
 # .....,.....,.......,...,.......,....., .....,.....,.......,...,.......,.....,
 
 
-
-class TopicManager:
-    def __init__(self, bot, group_id):
-        self.bot = bot
-        self.group_id = int(group_id)
-        self.cache = {}  # topic_name -> thread_id
-
-    async def get_or_create(self, topic_name: str):
-        name = topic_name.strip()[:100] if topic_name else "Untitled"
-        if name in self.cache:
-            return self.cache[name]
-        try:
-            resp = await self.bot.create_forum_topic(chat_id=self.group_id, name=name)
-            topic_id = getattr(resp, "message_thread_id", None)
-            if topic_id is None:
-                # fallback: sometimes response is a Message with message_thread_id attribute
-                topic_id = resp.message_thread_id if hasattr(resp, "message_thread_id") else None
-            if topic_id is None:
-                return None
-            self.cache[name] = int(topic_id)
-            # small sleep to avoid hitting rate limits on many topic creations
-            time.sleep(0.6)
-            return int(topic_id)
-        except Exception as e:
-            print(f"Error creating topic '{name}': {e}")
-            return None
-
-
-
-
 async def drm_handler(bot: Client, m: Message):
     globals.processing_request = True
     globals.cancel_requested = False
@@ -178,34 +148,18 @@ async def drm_handler(bot: Client, m: Message):
         else:
             b_name = raw_text0
 
-        await editable.edit("__**⚙️ Upload Mode?**__\nSend 'topics' to upload into Forum Topics in a group (group must have Topics enabled)\nSend 'normal' to upload to a normal group/channel or without using topics.\n\nThen you will be asked for the Channel/Group ID.\n\n__**⚠️Provide the Channel ID or send /d**__\n\n<blockquote><i>🔹 Make me an admin to upload.\n🔸Send /id in your channel to get the Channel ID.\n\nExample: Channel ID = -100XXXXXXXXXXX</i></blockquote>\n**")
+        await editable.edit("__**⚠️Provide the Channel ID or send /d__\n\n<blockquote><i>🔹 Make me an admin to upload.\n🔸Send /id in your channel to get the Channel ID.\n\nExample: Channel ID = -100XXXXXXXXXXX</i></blockquote>\n**")
         try:
-            # First ask for upload mode
-            await bot.send_message(editable.chat.id, "Send upload mode: 'topics' or 'normal' (send /d to default to normal)")
-            try:
-                input_mode: Message = await bot.listen(editable.chat.id, timeout=20)
-                upload_mode = input_mode.text.lower()
-                await input_mode.delete(True)
-            except asyncio.TimeoutError:
-                upload_mode = 'normal'
-
             input7: Message = await bot.listen(editable.chat.id, timeout=20)
             raw_text7 = input7.text
             await input7.delete(True)
         except asyncio.TimeoutError:
             raw_text7 = '/d'
-            upload_mode = 'normal'
 
         if "/d" in raw_text7:
             channel_id = m.chat.id
         else:
-            channel_id = raw_text7
-        # initialize topic manager if needed
-        topic_manager = None
-        use_topics = False
-        if upload_mode == 'topics':
-            use_topics = True
-            topic_manager = TopicManager(bot, channel_id)
+            channel_id = raw_text7    
         await editable.delete()
 
     elif m.text:
@@ -550,7 +504,7 @@ async def drm_handler(bot: Client, m: Message):
                     filename = res_file  
                     await prog1.delete(True)
                     await prog.delete(True)
-                    await helper.send_vid(bot, m, cc, filename, vidwatermark, thumb, name, prog, channel_id, message_thread_id=topic_id if use_topics else None)
+                    await helper.send_vid(bot, m, cc, filename, vidwatermark, thumb, name, prog, channel_id)
                     count += 1  
                     await asyncio.sleep(1)  
                     continue  
@@ -562,7 +516,7 @@ async def drm_handler(bot: Client, m: Message):
                     filename = res_file
                     await prog1.delete(True)
                     await prog.delete(True)
-                    await helper.send_vid(bot, m, cc, filename, vidwatermark, thumb, name, prog, channel_id, message_thread_id=topic_id if use_topics else None)
+                    await helper.send_vid(bot, m, cc, filename, vidwatermark, thumb, name, prog, channel_id)
                     count += 1
                     await asyncio.sleep(1)
                     continue
@@ -574,7 +528,7 @@ async def drm_handler(bot: Client, m: Message):
                     filename = res_file
                     await prog1.delete(True)
                     await prog.delete(True)
-                    await helper.send_vid(bot, m, cc, filename, vidwatermark, thumb, name, prog, channel_id, message_thread_id=topic_id if use_topics else None)
+                    await helper.send_vid(bot, m, cc, filename, vidwatermark, thumb, name, prog, channel_id)
                     count += 1
                     time.sleep(1)
                 

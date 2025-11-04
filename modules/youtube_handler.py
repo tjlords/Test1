@@ -125,10 +125,8 @@ async def ytm_handler(bot: Client, m: Message):
                 globals.processing_request = False
                 globals.cancel_requested = False
                 return
-            
-            # FIXED: Use original URL directly without conversion
-            url = "https://" + links[i][1]
-            
+            Vxy = links[i][1].replace("www.youtube-nocookie.com/embed", "youtu.be")
+            url = "https://" + Vxy
             oembed_url = f"https://www.youtube.com/oembed?url={url}&format=json"
             response = requests.get(oembed_url)
             audio_title = response.json().get('title', 'YouTube Video')
@@ -137,23 +135,16 @@ async def ytm_handler(bot: Client, m: Message):
             name1 = f'{audio_title} {CREDIT}'
 
             if "youtube.com" in url or "youtu.be" in url:
-                prog = await m.reply_text(f"<i><b>Video Downloading</b></i>\n<blockquote><b>{str(count).zfill(3)}) {name1}</b></blockquote>")
-                
-                # FIXED: Check if cookies file exists and use appropriate command
-                if os.path.exists(cookies_file_path) and os.path.getsize(cookies_file_path) > 0:
-                    cmd = f'yt-dlp -f "best[height<=720]" --cookies {cookies_file_path} "{url}" -o "{name}.mp4"'
-                else:
-                    cmd = f'yt-dlp -f "best[height<=720]" "{url}" -o "{name}.mp4"'
-                
+                prog = await m.reply_text(f"<i><b>Audio Downloading</b></i>\n<blockquote><b>{str(count).zfill(3)}) {name1}</b></blockquote>")
+                cmd = f'yt-dlp -x --audio-format mp3 --cookies {cookies_file_path} "{url}" -o "{name}.mp3"'
                 print(f"Running command: {cmd}")
                 os.system(cmd)
-                if os.path.exists(f'{name}.mp4'):
+                if os.path.exists(f'{name}.mp3'):
                     await prog.delete(True)
-                    print(f"File {name}.mp4 exists, attempting to send...")
+                    print(f"File {name}.mp3 exists, attempting to send...")
                     try:
-                        # FIXED: Send as video instead of document
-                        await bot.send_video(chat_id=m.chat.id, video=f'{name}.mp4', caption=f'**🎬 Title : **[{str(count).zfill(3)}] - {name1}.mp4\n\n🔗**Video link** : {url}\n\n🌟** Extracted By **: {CREDIT}')
-                        os.remove(f'{name}.mp4')
+                        await bot.send_document(chat_id=m.chat.id, document=f'{name}.mp3', caption=f'**🎵 Title : **[{str(count).zfill(3)}] - {name1}.mp3\n\n🔗**Video link** : {url}\n\n🌟** Extracted By **: {CREDIT}')
+                        os.remove(f'{name}.mp3')
                         count+=1
                     except Exception as e:
                         await m.reply_text(f'⚠️**Downloading Failed**⚠️\n**Name** =>> `{str(count).zfill(3)} {name1}`\n**Url** =>> {url}', disable_web_page_preview=True)
@@ -166,10 +157,7 @@ async def ytm_handler(bot: Client, m: Message):
     except Exception as e:
         await m.reply_text(f"<b>Failed Reason:</b>\n<blockquote><b>{str(e)}</b></blockquote>")
     finally:
-        # FIXED: Reset global flags
-        globals.processing_request = False
-        globals.cancel_requested = False
-        await m.reply_text("<blockquote><b>All YouTube Videos Download Successfully</b></blockquote>")
+        await m.reply_text("<blockquote><b>All YouTube Music Download Successfully</b></blockquote>")
 
 #========================================================================================================================================================================================================
 async def y2t_handler(bot: Client, message: Message):
@@ -233,3 +221,4 @@ async def y2t_handler(bot: Client, message: Message):
 
     # Remove the temporary text file after sending
     os.remove(txt_file)
+    
