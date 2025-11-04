@@ -25,6 +25,7 @@ from settings import register_settings_handlers
 from broadcast import broadcast_handler, broadusers_handler
 from authorisation import add_auth_user, list_auth_users, remove_auth_user
 from youtube_handler import ytm_handler, y2t_handler, getcookies_handler, cookies_handler
+from topic_handlers import TopicHandlers
 from vars import API_ID, API_HASH, BOT_TOKEN, OWNER, CREDIT, AUTH_USERS, TOTAL_USERS, cookies_file_path
 # .....,.....,.......,...,.......,....., .....,.....,.......,...,.......,.....,
 
@@ -36,11 +37,18 @@ bot = Client(
     bot_token=BOT_TOKEN
 )
 # .....,.....,.......,...,.......,....., .....,.....,.......,...,.......,.....,
+
 register_feature_handlers(bot)
 register_settings_handlers(bot)
 register_upgrade_handlers(bot)
 register_commands_handlers(bot)
 # .....,.....,.......,...,.......,....., .....,.....,.......,...,.......,.....,
+# Initialize topic handlers (add this after bot initialization)
+from modules.drm_handler import download_video_function  # Import your download function
+topic_handlers = TopicHandlers(bot, download_video_function)
+
+# .....,.....,.......,...,.......,....., .....,.....,.......,...,.......,.....,
+
 @bot.on_message(filters.command("start"))
 async def start(bot, m: Message):
     user_id = m.chat.id
