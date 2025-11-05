@@ -54,6 +54,7 @@ class TopicManager:
     async def get_or_create(self, topic_name: str):
         name = topic_name.strip()[:100] if topic_name else "Untitled"
         if name in self.cache:
+            print(f"🧩 Topic reused: [{name}] → ID {self.cache[name]}")
             return self.cache[name]
         try:
             resp = await self.bot.create_forum_topic(chat_id=self.group_id, name=name)
@@ -64,6 +65,7 @@ class TopicManager:
             if topic_id is None:
                 return None
             self.cache[name] = int(topic_id)
+            print(f"🧩 Topic created: [{name}] → ID {topic_id}")
             # small sleep to avoid hitting rate limits on many topic creations
             time.sleep(0.6)
             return int(topic_id)
@@ -199,13 +201,17 @@ async def drm_handler(bot: Client, m: Message):
         if "/d" in raw_text7:
             channel_id = m.chat.id
         else:
-            channel_id = raw_text7
+            channel_id = int(raw_text7) if isinstance(raw_text7, str) and raw_text7.lstrip('-').isdigit() else raw_text7
         # initialize topic manager if needed
         topic_manager = None
         use_topics = False
-        if upload_mode == 'topics':
+        if upload_mode in ['/topic','topic','/topics','topics']:
             use_topics = True
             topic_manager = TopicManager(bot, channel_id)
+            await bot.send_message(editable.chat.id, "📁 Mode Selected: Topic Uploading Enabled ✅")
+        else:
+            await bot.send_message(editable.chat.id, "📁 Mode Selected: Normal Uploading")
+        await asyncio.sleep(1)
         await editable.delete()
 
     elif m.text:
@@ -272,6 +278,7 @@ async def drm_handler(bot: Client, m: Message):
     arg = int(raw_text)
     try:
         for i in range(arg-1, len(links)):
+            topic_id = None
             if globals.cancel_requested:
                 await m.reply_text("🚦**STOPPED**🚦")
                 globals.processing_request = False
