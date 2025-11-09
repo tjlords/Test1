@@ -1,4 +1,4 @@
-# saini.py  -- UPDATED (new single watermark system)
+# saini.py  -- UPDATED saini_final_cleaned.py (new single watermark system)
 import os
 import re
 import time
@@ -22,6 +22,21 @@ from Crypto.Cipher import AES
 from Crypto.Util.Padding import unpad
 from base64 import b64decode
 from requests.exceptions import RequestException
+
+
+# ==================== STARTUP CLEANUP ====================
+import shutil
+startup_folders = ["downloads", "temp", "/tmp", "videos", "cache"]
+for folder in startup_folders:
+    try:
+        if os.path.exists(folder):
+            shutil.rmtree(folder, ignore_errors=True)
+            print(f"🧽 Pre-startup cleanup: removed {folder}")
+    except Exception as e:
+        print(f"⚠️ Startup cleanup error in {folder}: {e}")
+print("✅ Pre-startup cleanup complete. Ready to run bot.")
+# =========================================================
+
 
 def duration(filename):
     result = subprocess.run(["ffprobe", "-v", "error", "-show_entries",
@@ -356,24 +371,9 @@ async def send_vid(bot: Client, m: Message, cc, filename, vidwatermark, thumb, n
         else:
             thumbnail = thumb
 
-        # WATERMARK PROCESSING
-        if vidwatermark == "/d":
-            # No watermark - use original file
-            w_filename = filename
-            print("🚫 Skipping watermark (user disabled).")
-        else:
-            # Add watermark using simple reliable method
-            w_filename = f"WM_{os.path.basename(filename)}"
-            await reply.edit_text(f"**🎨 Applying Watermark:**\n<blockquote>**{name}**</blockquote>")
-            print(f"💧 Watermark text: {vidwatermark}")
-
-            success = add_watermark_simple(filename, w_filename, vidwatermark)
-
-            if success and os.path.exists(w_filename):
-                try:
-                    os.remove(filename)
-                    print("🗑️ Original file deleted after watermarking.")
-                except Exception as e:
+        # WATERMARK DISABLED
+        print('🚫 Watermark disabled (clean version). Using original file.')
+    except Exception as e:
                     print(f"Warning: couldn't delete original: {e}")
                 filename = w_filename
             else:
@@ -434,6 +434,7 @@ async def send_vid(bot: Client, m: Message, cc, filename, vidwatermark, thumb, n
         except Exception as e2:
             print(f"❌ Document upload failed too: {e2}")
 
+    
     # CLEANUP
     try:
         await reply.delete(True)
@@ -443,13 +444,32 @@ async def send_vid(bot: Client, m: Message, cc, filename, vidwatermark, thumb, n
         await reply1.delete(True)
     except:
         pass
-    if os.path.exists(f"{os.path.splitext(filename)[0]}.jpg"):
-        try:
-            os.remove(f"{os.path.splitext(filename)[0]}.jpg")
-            print("🗑️ Thumbnail cleaned up")
-        except:
-            pass
 
-    print("🎉 Process completed successfully!")
+    # Delete thumbnail and uploaded video
+    try:
+        base = os.path.splitext(filename)[0]
+        thumb_path = f"{base}.jpg"
+        if os.path.exists(thumb_path):
+            os.remove(thumb_path)
+            print(f"🧹 Deleted thumbnail: {thumb_path}")
+        if os.path.exists(filename):
+            os.remove(filename)
+            print(f"🧹 Deleted uploaded video: {filename}")
+    except Exception as e:
+        print(f"⚠️ Cleanup file delete error: {e}")
+
+    # Deep-clean temp folders (safe for Render)
+    import shutil
+    try:
+        folders_to_clean = ["downloads", "temp", "/tmp", "videos", "cache"]
+        for f in folders_to_clean:
+            if os.path.exists(f):
+                shutil.rmtree(f, ignore_errors=True)
+                print(f"🧽 Cleared folder: {f}")
+    except Exception as e:
+        print(f"⚠️ Folder cleanup error: {e}")
+
+    print("🎉 Process completed successfully and cleaned up!")
+
 
 # (rest of file if any - nothing else changed)
