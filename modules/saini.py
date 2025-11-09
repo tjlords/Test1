@@ -1,4 +1,4 @@
-# saini.py  -- UPDATED saini_final_cleaned.py (new single watermark system)
+# saini.py  -- UPDATED saini_final_fix_v2.py (new single watermark system deleted)
 import os
 import re
 import time
@@ -372,23 +372,12 @@ async def send_vid(bot: Client, m: Message, cc, filename, vidwatermark, thumb, n
             thumbnail = thumb
 
         # WATERMARK DISABLED
+        # Watermarking was removed for stability. Use original file directly.
         print('🚫 Watermark disabled (clean version). Using original file.')
     except Exception as e:
-                    print(f"Warning: couldn't delete original: {e}")
-                filename = w_filename
-            else:
-                print("⚠️ Watermark failed, falling back to original file.")
-                filename = filename
+        print(f"Warning while setting thumbnail or watermark disabled: {e}")
 
-    except Exception as e:
-        print(f"❌ Watermark error: {e}")
-        filename = filename  # Fallback to original
-        try:
-            await m.reply_text(f"Watermark error: {str(e)}")
-        except:
-            pass
-
-    # Get duration
+# Get duration
     if os.path.exists(filename):
         try:
             dur = int(duration(filename))
